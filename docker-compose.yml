@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rescued_people_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bot}
+      POSTGRES_DB: ${POSTGRES_DB:-rescued_people}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT_EXPOSED:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bot} -d ${POSTGRES_DB:-rescued_people}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  bot:
+    build: .
+    container_name: rescued_people_bot
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bot}
+      POSTGRES_DB: ${POSTGRES_DB:-rescued_people}
+      TZ: ${TZ:-UTC}
+      NDRRMA_API_URL: ${NDRRMA_API_URL:-https://ndrrma.gov.np/api/v1/rescues/rescued-persons/}
+      RASUWA_PAGE_URL: ${RASUWA_PAGE_URL:-https://ndrrma.gov.np/en/rasuwa}
+      MAX_SURNAMES_PER_USER: ${MAX_SURNAMES_PER_USER:-25}
+      PORT: 3000
+    ports:
+      - "${BOT_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
