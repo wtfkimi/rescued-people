@@ -1,87 +1,89 @@
-# 🏔 Rescued People Nepal — Telegram bot
+# 🏔 Rescued People Nepal — Telegram Bot
 
-Бот следит за официальным списком спасённых людей NDRRMA (Непал) и присылает уведомление,
-как только в списке появляется одна из сохранённых пользователем фамилий.
+A bot that monitors the official NDRRMA (Nepal) list of rescued people and sends a notification as soon as one of the user's saved surnames appears in the list.
 
-Источник данных: `https://ndrrma.gov.np/api/v1/rescues/rescued-persons/?nationality=foreign`
-Страница для проверки: https://ndrrma.gov.np/en/rasuwa
+**Data source:** `https://ndrrma.gov.np/api/v1/rescues/rescued-persons/?nationality=foreign`  
+**Verification page:** https://ndrrma.gov.np/en/rasuwa
 
-## Как это работает
+## How It Works
 
-1. `/start` → бот **на английском** спрашивает язык: 🇬🇧 English / 🇺🇦 Українська / 🇷🇺 Русский.
-2. Пользователь присылает фамилию текстом. Можно сразу несколько — с новой строки, через запятую или `;`.
-3. Каждые **30 минут** (cron `@nestjs/schedule`) бот проходит все страницы API (limit/offset) и сравнивает:
+1. `/start` → The bot asks the user to select a language **in English**: 🇬🇧 English / 🇺🇦 Ukrainian / 🇷🇺 Russian.
+2. The user sends surnames as text. Multiple surnames are supported — separated by new lines, commas, or `;`.
+3. Every **30 minutes** (using `@nestjs/schedule` cron), the bot fetches all API pages (limit/offset pagination) and compares:
    `person.name.toLowerCase().includes(surname.toLowerCase())`.
-4. При совпадении приходит уведомление с `id`, `name`, `age`, `gender` и ссылкой «Проверьте здесь».
-5. Пара (пользователь, id человека) пишется в `notified_matches`, поэтому одно и то же совпадение
-   не присылается повторно.
+4. When a match is found, the bot sends a notification containing `id`, `name`, `age`, `gender`, and a "Check here" link.
+5. Each `(user, person_id)` pair is stored in `notified_matches` to prevent duplicate notifications for the same match.
 
-## Команды
+## Commands
 
-| Команда | Описание |
+| Command | Description |
 |---|---|
-| `/start` | выбор языка и приветствие |
-| любой текст | сохранить одну или несколько фамилий |
-| `/list` | список сохранённых фамилий |
-| `/remove` | удалить фамилию (инлайн-кнопки) |
-| `/check` | проверить список прямо сейчас |
-| `/notifications` | включить/выключить уведомления |
-| `/language` | сменить язык |
-| `/help` | справка |
+| `/start` | Language selection and welcome message |
+| Any text | Save one or multiple surnames |
+| `/list` | Display saved surnames |
+| `/remove` | Remove a surname (via inline buttons) |
+| `/check` | Check the list immediately |
+| `/notifications` | Enable/disable notifications |
+| `/language` | Change language |
+| `/help` | Help and usage instructions |
 
-## Запуск
+## Getting Started
 
 ```bash
 cp .env.example .env
-# впишите TELEGRAM_BOT_TOKEN от @BotFather
+# Enter your TELEGRAM_BOT_TOKEN obtained from @BotFather
 docker compose up -d --build
 docker compose logs -f bot
 ```
 
-Health-check: `curl localhost:3000/health` → `{"status":"ok","uptime":12}`
-
-### Локально без Docker
+**Health check:**
 
 ```bash
-docker compose up -d postgres      # Postgres на порту 5433
+curl localhost:3000/health
+```
+
+Expected response: `{"status":"ok","uptime":12}`
+
+### Running Locally Without Docker
+
+```bash
+docker compose up -d postgres      # PostgreSQL on port 5433
 npm install
 POSTGRES_HOST=localhost POSTGRES_PORT=5433 TELEGRAM_BOT_TOKEN=... npm run start:dev
 ```
 
-## Переменные окружения
+## Environment Variables
 
-Все переменные и значения по умолчанию — в `.env.example`. Основные:
+All environment variables and their default values are defined in `.env.example`. Key variables:
 
-| Переменная | По умолчанию | Назначение |
+| Variable | Default | Description |
 |---|---|---|
-| `TELEGRAM_BOT_TOKEN` | — | **обязательно**, токен от @BotFather |
-| `NDRRMA_NATIONALITY` | `foreign` | фильтр национальности в API |
-| `NDRRMA_PAGE_SIZE` | `100` | размер страницы при обходе API |
-| `RASUWA_PAGE_URL` | `https://ndrrma.gov.np/en/rasuwa` | ссылка «Проверьте здесь» |
-| `MAX_SURNAMES_PER_USER` | `25` | лимит фамилий на пользователя |
-| `MAX_MESSAGES_PER_USER_PER_RUN` | `20` | защита от флуда за один прогон |
-| `DB_SYNCHRONIZE` | `true` | автосоздание схемы TypeORM |
+| `TELEGRAM_BOT_TOKEN` | — | **Required**, token obtained from @BotFather |
+| `NDRRMA_NATIONALITY` | `foreign` | Nationality filter for the API |
+| `NDRRMA_PAGE_SIZE` | `100` | Number of records per API page |
+| `RASUWA_PAGE_URL` | `https://ndrrma.gov.np/en/rasuwa` | Link included in notifications ("Check here") |
+| `MAX_SURNAMES_PER_USER` | `25` | Maximum number of surnames per user |
+| `MAX_MESSAGES_PER_USER_PER_RUN` | `20` | Anti-spam limit per user per monitoring run |
+| `DB_SYNCHRONIZE` | `true` | Automatically create database schema using TypeORM |
 
-## Структура
+## Project Structure
 
-```
+```text
 src/
-  app.module.ts            конфиг, TypeORM, cron, Telegraf
-  bot/                     хендлеры Telegram (telegraf + nestjs-telegraf)
-  i18n/                    en / uk / ru переводы + рендер HTML-сообщений
-  monitor/                 cron каждые 30 минут, матчинг, отправка уведомлений
-  ndrrma/                  клиент API NDRRMA с обходом пагинации
-  users/                   пользователи и фамилии
+  app.module.ts            configuration, TypeORM, cron, Telegraf
+  bot/                     Telegram handlers (telegraf + nestjs-telegraf)
+  i18n/                    en / uk / ru translations + HTML message rendering
+  monitor/                 cron every 30 minutes, matching, notification delivery
+  ndrrma/                  NDRRMA API client with pagination support
+  users/                   users and surnames
   database/entities/       users, surnames, notified_matches
   health/                  GET /health
 ```
 
-## Что проверено на живых данных
+## Verified Against Live Data
 
-- обход пагинации API: 209 записей за 3 запроса;
-- матчинг: `Sah` → 3 совпадения по `name`, `सहनी` → 3 совпадения по `name_ne`;
-- схема БД в Postgres 16, дедупликация фамилий и уведомлений через `UNIQUE + ON CONFLICT DO NOTHING`,
-  каскадное удаление, запрос получателей рассылки;
-- рендер уведомлений во всех трёх языках, экранирование HTML;
-- сборка Docker-образа и старт всего стека (`bot` останавливается только на 401 от Telegram,
-  если токен фиктивный).
+- API pagination: 209 records fetched across 3 requests.
+- Matching: `Sah` → 3 matches by `name`, `सहनी` → 3 matches by `name_ne`.
+- PostgreSQL 16 database schema, surname and notification deduplication using `UNIQUE + ON CONFLICT DO NOTHING`, cascading deletes, and recipient lookup queries.
+- Notification rendering in all three languages, including HTML escaping.
+- Docker image build and full stack startup (the `bot` service stops only when receiving a 401 response from Telegram due to an invalid token).
